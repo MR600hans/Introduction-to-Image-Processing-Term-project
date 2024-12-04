@@ -47,15 +47,16 @@ def compute_focus_map_from_mask(foreground_mask):
     :param foreground_mask: 前景掩膜，值為0或1
     :return: 焦點權重圖，值範圍在 [0,1]
     """
-    # 計算距離變換
-    dist_transform = cv2.distanceTransform(1 - foreground_mask, cv2.DIST_L2, 5)
+    # 計算距離變換，使用 L1 距離和較小的遮罩大小以加快衰減速度
+    dist_transform = cv2.distanceTransform(1 - foreground_mask, cv2.DIST_L1, 3)
 
-    # 歸一化並取反
+    # 正規化並取反，使用 power 控制衰減速度
+    power = 0.5  # 調整此值以改變衰減速度
     focus_map = cv2.normalize(dist_transform, None, 0, 1.0, cv2.NORM_MINMAX)
-    focus_map = 1 - focus_map
+    focus_map = 1 - (focus_map ** power)
 
-    # 平滑焦點權重圖
-    focus_map = cv2.GaussianBlur(focus_map, (21, 21), sigmaX=15, sigmaY=15)
+    # 平滑焦點權重圖，減少模糊程度以使邊緣更尖銳
+    focus_map = cv2.GaussianBlur(focus_map, (11, 11), sigmaX=5, sigmaY=5)
 
     return focus_map
 
@@ -122,7 +123,7 @@ def apply_strong_blur(image, focus_map, max_blur, steps):
 
     # 分階段累積模糊效果
     for i in range(steps):
-        print(f"應用模糊階段：{i + 1}/{steps}")
+        print(f"Step：{i + 1}/{steps}")
         # 計算當前階段的模糊程度
         blur_amount = int(max_blur * (i + 1) / steps)
         if blur_amount % 2 == 0:
@@ -187,7 +188,7 @@ def main():
         os.makedirs(output_folder)
 
     # 載入輸入影像
-    input_image_path = 'DSC01197.JPG'  # 請替換為您的影像路徑
+    input_image_path = 'DSCF0835.JPG'  # 請替換為您的影像路徑
     image = cv2.imread(input_image_path)
 
     if image is None:
